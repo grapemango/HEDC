@@ -3,11 +3,14 @@
 # Repo Contents
 
 - active_inver.py
+- ray.py
 - inversion.py
+- pretem.py
 - nrlmsise_00.py
 - nrlmsise_00_date.py
 - nrlmsise_00_header.py
-- pretem.py
+  nrlmsise_00.py, nrlmsise_00_date.py, nrlmsise_00_header.py is NRLMSISE-00 Model code, which is available for download [here](https://github.com/DeepHorizons/Python-NRLMSISE-00)
+
 
 # System Requirements
 
@@ -28,3 +31,9 @@ The code is written in Python and requires Python 3.9.7 to run (it may be compat
 #### Package dependencies 
 
 The code relies on the standard suite of Python packages.
+
+# Results
+
+The scripts should produce the data in 'Figure_data.xslx' when run on the full data set, as follows:
+- active_inver.py draws the "Figure 4" and "Figure 5". 
+- ray.py draws the "Figure 6". 
