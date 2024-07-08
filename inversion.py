@@ -130,7 +130,7 @@ def Save_all_data(dir_data, date, dir_cache):
         
     return None
 
-def fac_saturation(alt):
+def fac_saturation(times, alt):
     # This function calculates the factor of saturation effect
     # alt: unit,km
 
@@ -143,9 +143,9 @@ def fac_saturation(alt):
     Aki=1.0216*10**7   # s-1
     tau_R=1./Aki    # unit, s 
     Delta_tL=10.*1e-9    # unit, s
-    N_L=para_laser[3]*1e-3*para_laser[0]/h/c0    #   unit, counts
+    N_L=para_laser[3]/3*1e-3*para_laser[0]/h/c0    #   unit, counts
     T=0.85     # unit, %
-    sigma_eff=mehe_scatter_cross()   # unit, m^2
+    sigma_eff=mehe_scatter_cross(times, alt)   # unit, m^2
     theta_L=para_laser[2]     
     Omega=np.pi*theta_L**2/4;
     
@@ -243,7 +243,41 @@ def para_lidar():
     para_tele = [diam_tele, diam_fiber, NA_fiber]
     return para_laser, para_atm, para_tele
 
-def mehe_scatter_cross():
+def tem_atm(times_unix, alt):
+    # This function obtains the atmospheric temperature based on time, 
+    # altitude and the atmospheric model.
+    alt = np.array([alt])
+    n_alt = np.size(alt)
+    alt=alt.reshape(n_alt)
+    tem_atm = np.zeros_like(alt, dtype=float)
+
+    times = datetime.datetime.fromtimestamp(times_unix)
+    doy = times.timetuple().tm_yday  
+    seconds_since_midnight = (times - times.replace(hour=0, minute=0, second=0)
+                             ).total_seconds()  
+    
+    dir_current = os.path.abspath(".")
+    fname = os.path.join(dir_current,"Geomagnetic and solar indices.txt")
+    data_ap = np.loadtxt(fname, skiprows= 40 )
+    t = seconds_since_midnight/(3600*3)
+    ap = data_ap[:,15+int(t)]
+    mm = times.month
+    dd = times.day
+    year = times.year
+    mask_date = (data_ap[:,0]==year) & (data_ap[:,1]==mm) & (data_ap[:,2]==dd)
+    # index = np.where(mask_date == True)[0][0]
+    index=100
+    ap = data_ap[mask_date,15+int(t)]
+    f107 = data_ap[mask_date, 25]
+    f107a = np.mean(data_ap[(index-40):(index+41), 25])
+    
+    for i in range(n_alt):
+        tem_atm[i],pre_atm,Den_num=pretem.caltem_gtd7(doy, seconds_since_midnight, 
+                                                      alt[i], f107a, f107, ap)
+    return tem_atm
+
+
+def mehe_scatter_cross(times, alt):
     # This function calculates the effective scattering cross-section of metastable helium
 
     # some const.
@@ -257,7 +291,7 @@ def mehe_scatter_cross():
     para_laser, para_atm, para_tele=para_lidar()
     
     # some atmosphere parameter
-    T=para_atm     # K
+    T= tem_atm(times, alt)     # K
     # some atom parameter
     A=1.0216*10**7          # Einstein's A-coefficient, unit s-1
     
@@ -293,78 +327,20 @@ def mehe_scatter_cross():
     sigma_eff=sigma_eff1/11+sigma_eff2*10/33+sigma_eff3*20/33
     return sigma_eff
 
-def interarea_twocircle(R,r,d):
-    # This function calculates the area of intersection between two circles
-
-    R=np.atleast_1d(R)   
-    r=np.atleast_1d(r)
-    
-    interarea=np.ones_like(R, dtype=float)
-    mask = np.where((d < R+r) & (d > np.abs(R-r)) )[0]  
-    
-    if np.sum(mask.shape)!=0:
-        alpha_cos = (R[mask]**2+d**2-r[mask]**2)/(2*R[mask]*d)
-        acos_alpha = np.arccos(alpha_cos)
-        
-        beta_cos =  (r[mask]**2+d**2-R[mask]**2)/(2*r[mask]*d)
-        acos_beta = np.arccos(beta_cos)
-    
-        interarea[mask] = (R[mask]**2*acos_alpha + r[mask]**2*acos_beta 
-                         - R[mask]**2*alpha_cos*np.sqrt(1-alpha_cos**2) 
-                         - r[mask]**2*beta_cos*np.sqrt(1-beta_cos**2))
-        
-    mask = np.where(d >= R+r )[0]
-    if np.sum(mask.shape)!=0:
-        interarea[mask] = 0
-
-    mask = np.where(d <= np.abs(R-r) )[0]
-    if np.sum(mask.shape)!=0:
-        interarea[mask] = np.pi*np.min([R[mask],r[mask]])**2
-    return interarea
-
-def geometric(alt):
-    # This function calculates the geometric overlap factor for different heights
-    # alt, km
-    # return, geometric factors
-    para_laser, para_atm, para_tele=para_lidar()
-    rad_laser=para_laser[2]     # unit, rad
-    alt = alt*1e6   # unit, mm
-
-    n_alt = np.max(np.array([alt]).shape)
-    
-    O_laser = np.array([[np.cos(np.pi*0/3),np.sin(np.pi*0/3)],
-                        [np.cos(np.pi*2/3),np.sin(np.pi*2/3)],
-                        [np.cos(np.pi*4/3),np.sin(np.pi*4/3)]])*250   # unit, mm
-    R_laser = 150 + alt*rad_laser/2   # unit, mm
-    
-    rad_tele = para_tele[1]*para_tele[2]/para_tele[0]*2    # unit, rad
-    O_tele = np.array([np.cos(np.pi*0/3),np.sin(np.pi*0/3)])*1750  # unit, mm
-    R_tele = 500 + alt * rad_tele/2       # unit, mm
-
-    O_tele1=np.zeros_like(O_tele)
-    theta = np.linspace(0,np.pi*2/3,50)
-    ratio = np.zeros( (len(theta), n_alt) )
-    for j in range(len(theta)):
-        x = O_tele[0] * np.cos(theta[j]) - O_tele[1] * np.sin(theta[j])
-        y = O_tele[0] * np.sin(theta[j]) + O_tele[1] * np.cos(theta[j])
-        O_tele1[0] = x
-        O_tele1[1] = y
-        
-        area = np.zeros((3, n_alt))
-        for i in range(3):
-            d = np.sqrt(np.sum((O_laser[i,:]-O_tele1)**2))
-            area[i,:] = interarea_twocircle(R_laser, R_tele, d)
-        ratio[j,:] = np.sum(area, axis=0)/(3*np.pi*R_laser**2)
-
-    return np.mean(ratio, axis=0)
-
-
-def get_He_profiles(data, windows_rolling_alt=0, windows_rolling_time=0):
+def get_He_profiles(data, times, windows_rolling_alt=0, windows_rolling_time=0):
     # This function takes filtered data and calculates raw photon return
     # profiles and metastable helium density profiles, each with associated
     # uncertainties, over 50 km vertical bins.
     # data    : [n_time, n_alt]
+    # times   : [n_time]
     
+    # read geometric factor data
+    dir_current = os.path.abspath(".")
+    fname = os.path.join(dir_current,"geo_data.txt")
+    geo_data = np.loadtxt(fname, skiprows=1)
+
+    time = np.mean(times)
+
     if data.shape[0]==0:
         return np.zeros(30),np.zeros(30),np.zeros(30),np.zeros(30)
 
@@ -378,7 +354,7 @@ def get_He_profiles(data, windows_rolling_alt=0, windows_rolling_time=0):
     n = int(bin_size / 1.)   
     N = int(1500  / n)  
     binned_data = np.zeros((data.shape[0], N), dtype=np.float64)
-    z_squared = np.zeros(N)
+    z_squared_sighe = np.zeros(N)
     
     binned_bg_sub = np.zeros((data.shape[0], N), dtype=np.float64)
     binned_bg_sub_error = np.zeros((data.shape[0], N), dtype=np.float64)
@@ -386,9 +362,11 @@ def get_He_profiles(data, windows_rolling_alt=0, windows_rolling_time=0):
     for i in range(N):
         binned_data[:,i] = np.sum(data[:,n*i:n*(i + 1)], axis=1)
 
-        z_squared[i] = np.mean( (np.arange(0,1500,1)[n*i:n*(i + 1)]+0.5)**(-2)*
-                               geometric(np.arange(0,1500,1)[n*i:n*(i + 1)]+0.5)*
-                               fac_saturation(np.arange(0,1500,1)[n*i:n*(i + 1)]+0.5) )  # km^2
+        z_squared_sighe[i] = np.mean( (np.arange(0,1500,1)[n*i:n*(i + 1)]+0.5)**(-2)*
+                               geo_data[n*i:n*(i + 1),1]*
+                               fac_saturation(time, np.arange(0,1500,1)[n*i:n*(i + 1)]+0.5) 
+                               * mehe_scatter_cross(time, np.arange(0,1500,1)[n*i:n*(i + 1)]+0.5)
+                               )  # km^2
     
     for i in range(data.shape[0]):
         if windows_rolling_alt:
@@ -412,15 +390,15 @@ def get_He_profiles(data, windows_rolling_alt=0, windows_rolling_time=0):
         # Den_num   atmospheric number density   unit m^-3
         tem_atm,pre_atm,Den_num=pretem.cal_atom_press_temp(alt=i+0.5,doy=6)
         
-        nR_z_R2[i-46]=Den_num*geometric(i+0.5)/((i+0.5)*1000.)**2      # m^-1
+        nR_z_R2[i-46]=Den_num*geo_data[i,1]/((i+0.5)*1000.)**2      # m^-1
         
 
     n_R_over_z_R_squared=np.mean(nR_z_R2)
 
-    sigma_he=mehe_scatter_cross()  # m^2
+
     delta_z_R = 1000               # m
-    conversion_factor = (rayleigh * sigma_he * bin_size / n_R_over_z_R_squared 
-                         * z_squared / (sig_back_R*4*np.pi) / delta_z_R * 10**3) # counts cm^3
+    conversion_factor = (rayleigh  * bin_size / n_R_over_z_R_squared 
+                         * z_squared_sighe / (sig_back_R*4*np.pi) / delta_z_R * 10**3) # counts cm^3
     
 
     density = integ_bin_bg_sub / conversion_factor # cm^-3
@@ -444,5 +422,4 @@ if  __name__=='__main__':
     para_laser, para_atm, para_tele=para_lidar()
     rad_tele = para_tele[1]*para_tele[2]/para_tele[0]    # unit, rad
     print(rad_tele)
-
 

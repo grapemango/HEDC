@@ -3,7 +3,7 @@ import numpy as np
 import os
 from matplotlib import pyplot as plt
 from matplotlib import cm
-
+import datetime
 
 
 def plot_2D_2(data, accutype, highview, sza_edges, figtype, twilight_type, figname_prefix, dir_save, fig, ax, index_ax):
@@ -41,24 +41,58 @@ def plot_2D_2(data, accutype, highview, sza_edges, figtype, twilight_type, figna
     Z = den[3:(3+num_high),:]
     if figtype == 0:
         if accutype == 0:
-            Z[Z>0.7]=0.7
-            Z[Z<-0.7]=-0.7
+            Z[Z>0.6]=0.6
+            Z[Z<-0.6]=-0.6
             
         
     cset1 = ax2.contourf(X, Y, Z, levels=10,cmap=cm.jet)
+   
+    ax3 = ax2.twiny()
+    ax3.set_xlim(ax2.get_xlim()[0], ax2.get_xlim()[1])
+    if twilight_type == 1:
+        xticks = [al.ISOtoSZA( datetime.datetime(2024,1,6,4)-datetime.timedelta(hours = 109.1/15)),
+                        al.ISOtoSZA( datetime.datetime(2024,1,6,5)-datetime.timedelta(hours = 109.1/15)),
+                        ]
+        print(xticks, ax3.get_xlim())
+        time_str = ['5:00', '4:00']
+    elif twilight_type == 0:
+        if accutype == 0:
+            xticks = [
+                            al.ISOtoSZA( datetime.datetime(2024,4,2,20)-datetime.timedelta(hours = 109.1/15)),
+                            al.ISOtoSZA( datetime.datetime(2024,4,2,21)-datetime.timedelta(hours = 109.1/15)),
+                            al.ISOtoSZA( datetime.datetime(2024,4,2,22)-datetime.timedelta(hours = 109.1/15))
+                            ]
+            time_str = ['20:00', '21:00', '22:00']
+        elif accutype == 1:
+            xticks = [
+                            al.ISOtoSZA( datetime.datetime(2024,2,20,20)-datetime.timedelta(hours = 109.1/15)),
+                            al.ISOtoSZA( datetime.datetime(2024,2,20,21)-datetime.timedelta(hours = 109.1/15)),
+                            al.ISOtoSZA( datetime.datetime(2024,2,20,22)-datetime.timedelta(hours = 109.1/15))
+                            ]
+            time_str = ['20:00', '21:00', '22:00']
+    mask = (xticks>ax2.get_xlim()[0])&(xticks<ax2.get_xlim()[1])
+    xticks_err = np.where(mask, xticks, np.nan)
+    
+    time_str_lim = np.where(mask, time_str, np.nan)
+    ax3.set_xticks(xticks_err)
+    ax3.set_xticklabels(time_str_lim)
+    ax3.tick_params(axis='x', pad=-4)
+    ax3.set_xlabel('LT:', loc = 'left', labelpad=-7)
+
+
     cbar = fig.colorbar(cset1, cax=ax[index_ax+2], location='bottom')
     cbar.set_label(nametype_co[figtype], size=9)
 
     if figtype == 0:
         if twilight_type == 0:
-            ax2.set_title('(b) '+figname_prefix, fontsize=10, pad=15)  
+            ax2.set_title('(b) '+figname_prefix, fontsize=10, pad=10)  
         elif twilight_type == 1:
-            ax2.set_title('(d) '+figname_prefix, fontsize=10, pad=15)  
+            ax2.set_title('(d) '+figname_prefix, fontsize=10, pad=10)  
     elif figtype == 1:
         if twilight_type == 0:
-            ax2.set_title('(a) '+figname_prefix, fontsize=10, pad=15)  
+            ax2.set_title('(a) '+figname_prefix, fontsize=10, pad=10)  
         elif twilight_type == 1:
-            ax2.set_title('(c) '+figname_prefix, fontsize=10, pad=15) 
+            ax2.set_title('(c) '+figname_prefix, fontsize=10, pad=10) 
 
     if twilight_type:
         ax2.invert_xaxis()
@@ -67,12 +101,18 @@ def plot_2D_2(data, accutype, highview, sza_edges, figtype, twilight_type, figna
     if figtype == 0:
         if twilight_type == 1:
             if accutype == 0:
-                ticks = np.arange(-0.6, 0.8, 0.3) 
+                ticks = np.arange(-0.3, 0.6, 0.2) 
+                ax[index_ax+2].set_xticks(ticks)
+            elif accutype == 1:
+                ticks = np.arange(-0.1, 0.3, 0.1) 
                 ax[index_ax+2].set_xticks(ticks)
         elif twilight_type == 0:
             if accutype == 1:
                 # ticks = np.arange(-0.3, 0.6, 0.15)  
-                ticks = np.array([-0.3, -0.1,0.1 ,0.3,0.5])
+                ticks = np.array([-0.1,0.1 ,0.3])
+                ax[index_ax+2].set_xticks(ticks)
+            elif accutype == 0:
+                ticks = np.arange(-0.6, 0.7, 0.3)
                 ax[index_ax+2].set_xticks(ticks)
 
     ax2.set_ylabel('Altitude [km]',labelpad=0)
@@ -119,13 +159,18 @@ def plot_line_2(data, accutype, highview, sza_edges, figtype, twilight_type, fig
     if figtype == 0:
         if accutype == 1:
             if twilight_type == 0:
+                ax1.set_xlim([-0.25,0.5])
+                ax1.set_xticks([0.0,0.5])
+            elif twilight_type == 1:
+                ax1.set_xlim([-0.15,0.3])
+                ax1.set_xticks([0.0,0.3])
+        elif accutype == 0:
+            if twilight_type == 0:
                 ax1.set_xlim([-0.4,0.8])
                 ax1.set_xticks([0.0,0.8])
             elif twilight_type == 1:
-                ax1.set_xlim([-0.25,0.5])
-                ax1.set_xticks([0.0,0.5])
-        elif accutype == 0:
-            ax1.set_xlim([-0.5,1.0])
+                ax1.set_xlim([-0.3,0.6])
+                ax1.set_xticks([0.0,0.6])
     elif figtype == 1:
         if accutype == 1:
             if twilight_type == 0:
@@ -138,7 +183,7 @@ def plot_line_2(data, accutype, highview, sza_edges, figtype, twilight_type, fig
             elif twilight_type == 1:
                 ax1.set_xlim([-500,1000])
 
-    leg = ax1.legend(bbox_to_anchor=(-2.3, 1.15), 
+    leg = ax1.legend(bbox_to_anchor=(-2.3, 1.22), 
                      loc='upper left', 
                      frameon=False,   
                      handlelength=0.5, 
@@ -149,7 +194,7 @@ def plot_line_2(data, accutype, highview, sza_edges, figtype, twilight_type, fig
                     )
     ax1_xlim = ax1.get_xlim()
     ax1_ylim = ax1.get_ylim()
-    ax1.text(-(ax1_xlim[1]-ax1_xlim[0])*3, (ax1_ylim[1]-ax1_ylim[0])*1.27
+    ax1.text(-(ax1_xlim[1]-ax1_xlim[0])*3, (ax1_ylim[1]-ax1_ylim[0])*1.33
              , 'SZA [deg]:', fontsize=8, color='black', ha='center', va='bottom')
     
     return None
@@ -196,25 +241,45 @@ def main(accutype, date, dir_cache, figname, twilight_type, fig, ax, sza_end_2D)
     # Integrate data according to the predetermined range of solar zenith angles
     data_szasplit_evening = []
     data_szasplit_morning = []
+    times_szasplit_evening = []
+    times_szasplit_morning = []
+
+    # The format of elements in the reservation list
     for i in range(len(sza_edges_min)):
         data_szasplit_evening.append(np.zeros((0,3000)))
         data_szasplit_morning.append(np.zeros((0,3000)))
-    
+        times_szasplit_evening.append(np.zeros((0,)))
+        times_szasplit_morning.append(np.zeros((0,)))
     for i in range(nday):
         for j in range(len(sza_edges_min)):
-            data_szasplit_evening[j] = np.vstack((data_szasplit_evening[j],
-                            data_evenings[i][(SZA_evenings[i] < sza_edges_max[j])
-                            & (SZA_evenings[i] > sza_edges_min[j])]))
-            data_szasplit_morning[j] = np.vstack((data_szasplit_morning[j],
-                            data_mornings[i][(SZA_mornings[i] < sza_edges_max[j])
-                            & (SZA_mornings[i] > sza_edges_min[j])]))
+            data_szasplit_evening[j] = np.vstack( (
+                            data_szasplit_evening[j],
+                            data_evenings[i][ (SZA_evenings[i] < sza_edges_max[j])
+                            & (SZA_evenings[i] > sza_edges_min[j]) ]
+                            ) )
+            data_szasplit_morning[j] = np.vstack( (
+                            data_szasplit_morning[j],
+                            data_mornings[i][ (SZA_mornings[i] < sza_edges_max[j])
+                            & (SZA_mornings[i] > sza_edges_min[j]) ]
+                            ) )
+            times_szasplit_evening[j] = np.hstack( (
+                            times_szasplit_evening[j],
+                            times_evenings[i][(SZA_evenings[i] < sza_edges_max[j])
+                            & (SZA_evenings[i] > sza_edges_min[j])]
+                            ) )
+            times_szasplit_morning[j] = np.hstack( (
+                            times_szasplit_morning[j],
+                            times_mornings[i][(SZA_mornings[i] < sza_edges_max[j])
+                            & (SZA_mornings[i] > sza_edges_min[j])]
+                            ) )
     
     # Accumulate and invert metastable helium density from data within a certain solar zenith angle range
     profile_szasplit_evening = []
     profile_szasplit_morning = []
+    # print(times_szasplit_evening[0].shape)
     for j in range(len(sza_edges_min)):
-        profile_szasplit_evening.append(al.get_He_profiles(data_szasplit_evening[j],windows_rolling_alt=3)) 
-        profile_szasplit_morning.append(al.get_He_profiles(data_szasplit_morning[j],windows_rolling_alt=3)) 
+        profile_szasplit_evening.append(al.get_He_profiles(data_szasplit_evening[j], times_szasplit_evening[j], windows_rolling_alt=3)) 
+        profile_szasplit_morning.append(al.get_He_profiles(data_szasplit_morning[j], times_szasplit_morning[j], windows_rolling_alt=3)) 
  
     if twilight_type==0:
         index_ax=[4,1]
@@ -235,9 +300,13 @@ def main(accutype, date, dir_cache, figname, twilight_type, fig, ax, sza_end_2D)
     # Integrate data according to the predetermined range of solar zenith angles
     data_szasplit_evening = []
     data_szasplit_morning = []
+    times_szasplit_evening = []
+    times_szasplit_morning = []
     for i in range(len(sza_edges_min)):
         data_szasplit_evening.append(np.zeros((0,3000)))
         data_szasplit_morning.append(np.zeros((0,3000)))
+        times_szasplit_evening.append(np.zeros((0,)))
+        times_szasplit_morning.append(np.zeros((0,)))
     
     for i in range(nday):
         for j in range(len(sza_edges_min)):
@@ -247,13 +316,23 @@ def main(accutype, date, dir_cache, figname, twilight_type, fig, ax, sza_end_2D)
             data_szasplit_morning[j] = np.vstack((data_szasplit_morning[j],
                             data_mornings[i][(SZA_mornings[i] < sza_edges_max[j])
                             & (SZA_mornings[i] > sza_edges_min[j])]))
+            times_szasplit_evening[j] = np.hstack( (
+                            times_szasplit_evening[j],
+                            times_evenings[i][(SZA_evenings[i] < sza_edges_max[j])
+                            & (SZA_evenings[i] > sza_edges_min[j])]
+                            ) )
+            times_szasplit_morning[j] = np.hstack( (
+                            times_szasplit_morning[j],
+                            times_mornings[i][(SZA_mornings[i] < sza_edges_max[j])
+                            & (SZA_mornings[i] > sza_edges_min[j])]
+                            ) )
             
     # Accumulate and invert metastable helium density from data within a certain solar zenith angle range
     profile_szasplit_evening = []
     profile_szasplit_morning = []
     for j in range(len(sza_edges_min)):
-        profile_szasplit_evening.append(al.get_He_profiles(data_szasplit_evening[j],windows_rolling_alt=3)) 
-        profile_szasplit_morning.append(al.get_He_profiles(data_szasplit_morning[j],windows_rolling_alt=3)) 
+        profile_szasplit_evening.append(al.get_He_profiles(data_szasplit_evening[j], times_szasplit_evening[j],windows_rolling_alt=3)) 
+        profile_szasplit_morning.append(al.get_He_profiles(data_szasplit_morning[j], times_szasplit_morning[j],windows_rolling_alt=3)) 
 
     if twilight_type==0:
         index_ax=[3,0]
@@ -366,7 +445,7 @@ def fig_axes():
 if  __name__=='__main__':
 
     # 0, 0ne day; 1, multi days
-    accutype = 0
+    accutype = 1
     highview_even = 1000
 
 
@@ -411,4 +490,3 @@ if  __name__=='__main__':
         
 
     
-

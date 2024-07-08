@@ -31,6 +31,7 @@ def plot_ray(data, times, accutype, highview, sza_edges, twilight_type, figname_
     i=0
     ray = np.sum(data[i][0:20,:], axis=0)
     bg = np.mean(ray[1500:2500], axis=-1)
+    print(bg)
     time = np.mean(times[0][0:20])
     SZA = al.ISOtoSZA(datetime.datetime.strptime(Time(time, format='unix').iso,'%Y-%m-%d %H:%M:%S.%f'), Loc=[19.5,109.1,70])
     SZA_round = round(SZA, 2)
